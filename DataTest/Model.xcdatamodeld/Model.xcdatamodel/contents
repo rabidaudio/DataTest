@@ -1,22 +1,22 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<model userDefinedModelVersionIdentifier="" type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="9525" systemVersion="14F1713" minimumToolsVersion="Automatic">
-    <entity name="MakeModelYear" representedClassName="." syncable="YES">
+<model userDefinedModelVersionIdentifier="" type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="9525" systemVersion="14F1713" minimumToolsVersion="Xcode 7.0">
+    <entity name="MakeModelYear" syncable="YES">
         <attribute name="createdAt" optional="YES" attributeType="Date" syncable="YES"/>
         <attribute name="id" optional="YES" attributeType="Integer 64" defaultValueString="0" syncable="YES"/>
         <attribute name="make" optional="YES" attributeType="String" syncable="YES"/>
         <attribute name="model" optional="YES" attributeType="String" syncable="YES"/>
         <attribute name="updatedAt" optional="YES" attributeType="Date" syncable="YES"/>
         <attribute name="year" optional="YES" attributeType="Integer 64" defaultValueString="0" syncable="YES"/>
-        <relationship name="vehicles" optional="YES" toMany="YES" deletionRule="No Action" destinationEntity="Vehicle" syncable="YES"/>
+        <relationship name="vehicles" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="Vehicle" inverseName="makeModelYear" inverseEntity="Vehicle" syncable="YES"/>
     </entity>
-    <entity name="Vehicle" representedClassName="." syncable="YES">
+    <entity name="Vehicle" syncable="YES">
         <attribute name="createdAt" optional="YES" attributeType="Date" syncable="YES"/>
         <attribute name="updatedAt" optional="YES" attributeType="Date" syncable="YES"/>
         <attribute name="vin" optional="YES" attributeType="String" syncable="YES"/>
-        <relationship name="makeModelYear" optional="YES" maxCount="1" deletionRule="No Action" destinationEntity="MakeModelYear" syncable="YES"/>
+        <relationship name="makeModelYear" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="MakeModelYear" inverseName="vehicles" inverseEntity="MakeModelYear" syncable="YES"/>
     </entity>
     <elements>
-        <element name="MakeModelYear" positionX="-18" positionY="27" width="128" height="150"/>
-        <element name="Vehicle" positionX="-45" positionY="0" width="128" height="105"/>
+        <element name="Vehicle" positionX="-63" positionY="-18" width="128" height="105"/>
+        <element name="MakeModelYear" positionX="115" positionY="-141" width="128" height="150"/>
     </elements>
 </model>
