@@ -8,116 +8,174 @@
 
 import Foundation
 import ObjectMapper
+import Pluralize_swift
 
-
-
-//class Test: NSObject, NSCoding {
+//class Model: NSObject, NSCoding, Mappable {
 //    
-//    override init() {}
-//    
-//    required init?(_ x: String){
-//        
+//    func encodeWithCoder(aCoder: NSCoder) {
+//        aCoder.encodeObject(Mapper().toJSONString(self))
+//    }
+//
+//    required convenience init?(coder aDecoder: NSCoder){
+//        if let jsonString = aDecoder.decodeObject() as? String {
+//            self.init(json: jsonString)
+//        }else {
+//            return nil
+//        }
 //    }
 //    
-//    required convenience init?(coder aDecoder: NSCoder) {
-//        if let x = aDecoder.decodeObject() as? String {
-//            if let y = x.stringByRemovingPercentEncoding {
-//                self.init(y)
-//            }else{
-//                return nil
-//            }
+//    required init?(_ map: Map) {
+//        super.init()
+//        mapping(map)
+//    }
+//    
+//    convenience init?(json: String){
+//        if let jsonDict = Model.parseJSONStringToDictonary(json) {
+//            let map = Map(mappingType: .FromJSON, JSONDictionary: jsonDict)
+//            self.init(map)
 //        }else{
 //            return nil
 //        }
 //    }
 //    
-//    func encodeWithCoder(aCoder: NSCoder) {
+//    func mapping(map: Map) {
+//        // override me!
+//    }
 //    
+//    override var description: String {
+//        return self.toJSONString(true)!
+//    }
+//    
+//    //Mapper will do this, but annoyingly, Swift complains about ambiguous parseJSONDictionary
+//    private static func parseJSONStringToDictonary(JSON: String) -> [String:AnyObject]? {
+//        let data = JSON.dataUsingEncoding(NSUTF8StringEncoding, allowLossyConversion: true)
+//        if let data = data {
+//            let parsedJSON: AnyObject?
+//            do {
+//                parsedJSON = try NSJSONSerialization.JSONObjectWithData(data, options: NSJSONReadingOptions.AllowFragments)
+//            } catch let error {
+//                print(error)
+//                parsedJSON = nil
+//            }
+//            if let m = parsedJSON as? [String:AnyObject] {
+//                return m
+//            }
+//        }
+//        return nil
+//    }
+//
+//    func duplicate<T: Model>() -> T? {
+//        let data = NSKeyedArchiver.archivedDataWithRootObject(self)
+//        return NSKeyedUnarchiver.unarchiveObjectWithData(data) as? T
+//
+//    }
+//    
+//    func editAndSave<T: Model>(block: T -> Void) {
+//        Database.instance.beginChangesToItem(self) { transaction, item in
+//            block(item as! T)
+//            if let key = item.key(){
+//                transaction.setObject(item, forKey: key, inCollection: item.collection())
+//            }
+//        }
 //    }
 //}
-//
-//class MyTest: Test {
-//    
-//    var z = "aloha"
-//}
 
-//protocol Smappable {
-//    
-//    init?(_ map: String)
-//    
-//}
+/*
+class User: Model {
 
-class Model: NSObject, NSCoding, Mappable {
+var id: Int?
+var email: String?
+
+var key: String? {
+guard let id = id else { return nil }
+return String(id)
+}
+
+func mapping(map: Map) {
+id <- map["id"]
+email <- map["email"]
+}
+}
+*/
+
+//NOTE: Can't use @objc methods in an extension, and NSCoding requires it!
+
+func idToString(id: Int?) -> String? {
+    guard let id = id else { return nil }
+    return String(id)
+}
+
+
+enum Operation {
+    case Find, Query, Create, Update, Destroy
+}
+
+
+protocol Model: Mappable {
     
-    func encodeWithCoder(aCoder: NSCoder) {
-        aCoder.encodeObject(Mapper().toJSONString(self))
+    var key: String? { get }
+    
+    static var entityName: String { get }
+    
+    func getPathForOperation(op: Operation) -> String
+    
+    var requestJSONKey: String { get }
+    var responseJSONKey: String { get }
+    static var collectionName: String { get }
+}
+
+extension Model {
+    
+    // empty initializer
+    init(){
+        let m = Map(mappingType: .FromJSON, JSONDictionary: [:])
+        self.init(m)!
     }
     
-    required convenience init?(coder aDecoder: NSCoder){
-        if let jsonString = aDecoder.decodeObject() as? String {
-            if let jsonDict = Model.parseJSONStringToDictonary(jsonString) {
-                let map = Map(mappingType: .FromJSON, JSONDictionary: jsonDict)
-                self.init(map)
-            }else{
-                return nil
-            }
-        }else {
-            return nil
+    func getPathForOperation(op: Operation) -> String {
+        let basePath = Pluralize.apply(Self.entityName.lowercaseString)
+        switch(op){
+        case .Create:
+            fallthrough
+        case .Query:
+            return basePath
+        case .Find:
+            fallthrough
+        case .Create:
+            fallthrough
+        case .Update:
+            fallthrough
+        case .Destroy:
+            return "\(basePath)/\(key)"
         }
     }
-    
-    required init?(_ map: Map) {
-        super.init()
-        mapping(map)
-    }
-    
-    func mapping(map: Map) {
-        // override me!
-    }
 
-    func key() -> String? {
-        // override me!
-        return nil
+    var responseJSONKey: String {
+        return "data"
     }
     
-    override var description: String {
-        return self.toJSONString(true)!
+    var requestJSONKey: String {
+        return Self.entityName.lowercaseString
     }
     
-    //Mapper will do this, but annoyingly, Swift complains about ambiguous parseJSONDictionary
-    private static func parseJSONStringToDictonary(JSON: String) -> [String:AnyObject]? {
-        let data = JSON.dataUsingEncoding(NSUTF8StringEncoding, allowLossyConversion: true)
-        if let data = data {
-            let parsedJSON: AnyObject?
-            do {
-                parsedJSON = try NSJSONSerialization.JSONObjectWithData(data, options: NSJSONReadingOptions.AllowFragments)
-            } catch let error {
-                print(error)
-                parsedJSON = nil
-            }
-            if let m = parsedJSON as? [String:AnyObject] {
-                return m
-            }
-        }
-        return nil
+    static var collectionName: String {
+        return entityName
     }
     
+    // make a copy of the item by encoding and then decoding
+    // we use generics so we don't have to type convert the thing after duplication
     func duplicate<T: Model>() -> T? {
-        let data = NSKeyedArchiver.archivedDataWithRootObject(self)
-        return NSKeyedUnarchiver.unarchiveObjectWithData(data) as? T
-
+        return T(Map(mappingType: .FromJSON, JSONDictionary: self.toJSON()))
     }
 }
 
-extension NSCoding {
-
-}
-
-//
-//enum Operation {
-//    case Find, Query, Create, Update, Destroy
+//extension Model {
+//    
+//    func create(){
+//        Server.instance.request(<#T##path: String##String#>, method: <#T##Method#>)
+//    }
 //}
-//
+
 //extension NSManagedObject {
 //    
 //    convenience init(context: NSManagedObjectContext){
@@ -129,7 +187,7 @@ extension NSCoding {
 //        let name = NSStringFromClass(self)
 //        return name.componentsSeparatedByString(".").last!
 //    }
-//    
+//
 //}
 //
 //protocol Model: ResponseObjectSerializable {
@@ -143,47 +201,15 @@ extension NSCoding {
 //    
 //    var serialized: [String: AnyObject] { get }
 //}
-//
-//extension Alamofire.Method {
-//    
-//    private var encoding: ParameterEncoding {
-//        switch self {
-//        case .HEAD:
-//            fallthrough
-//        case .GET:
-//            fallthrough
-//        case .DELETE:
-//            return ParameterEncoding.URLEncodedInURL
-//        default:
-//            return ParameterEncoding.JSON
-//        }
-//    }
-//    
-//}
+
+//import PromiseKit
+//import Alamofire
+//import SwiftyJSON
 //
 //private func requestForJSON(method: Alamofire.Method, url: URLStringConvertible, parameters: [String:AnyObject] = [:], headers: [String:String] = [:]) -> Promise<(NSHTTPURLResponse, JSON)> {
 //    
-//    return Promise(resolvers: {fulfill, reject in
-//        Alamofire.request(method, url, parameters: parameters, encoding: method.encoding, headers: headers).responseJSON { response in
-//            switch response.result {
-//            case .Success:
-//                if let value = response.result.value, let response = response.response {
-//                    let json = JSON(value)
-//                    if let e = NetworkError(response: response, representation: json) {
-//                        reject(e)
-//                    }else{
-//                        fulfill(response, json)
-//                    }
-//                }else{
-//                    reject(Error.errorWithCode(.JSONSerializationFailed, failureReason: "Nil response"))
-//                }
-//            case .Failure(let error):
-//                reject(error)
-//            }
-//        }
-//    })
 //}
-//
+
 //protocol Hashable {
 //    
 //    // create
@@ -251,51 +277,6 @@ extension NSCoding {
 //    }
 //    return map
 //}
-//
-//// type, message, id, method, path
-//enum NetworkError: ErrorType, ResponseObjectSerializable {
-//    
-//    case NotFound(id: String, message: String)
-//    case Forbidden(id: String, message: String)
-//    case NotAuthenticated(id: String, message: String)
-//    case NoSuchRoute(id: String, message: String)
-//    case BadFormat(id: String, message: String)
-//    case ServerError(id: String, message: String)
-//    
-//    init?(response: NSHTTPURLResponse, representation: JSON) {
-//        if representation["status"].string != "ERROR" {
-//            return nil
-//        }
-//        if let err = representation["error"].dictionary {
-//            let id = err["id"]!.string!
-//            let message = err["message"]!.string!
-//            if let type = representation["type"].string {
-//                switch type {
-//                case "NOT_FOUND":
-//                    self = .NotFound(id: id, message: message)
-//                case "FORBIDDEN":
-//                    self = .Forbidden(id: id, message: message)
-//                case "NOT_AUTHENTICATED":
-//                    self = .NotAuthenticated(id: id, message: message)
-//                case "NO_SUCH_ROUTE":
-//                    self = .NoSuchRoute(id: id, message: message)
-//                case "BAD_FORMAT":
-//                    self = .BadFormat(id: id, message: message)
-//                case "SERVER_ERROR":
-//                    self = .ServerError(id: id, message: message)
-//                default:
-//                    return nil
-//                }
-//            }else{
-//                return nil
-//            }
-//        }else{
-//            return nil
-//        }
-//    }
-//}
-//
-//
 //public protocol ResponseObjectSerializable {
 //    init?(response: NSHTTPURLResponse, representation: JSON)
 //}
