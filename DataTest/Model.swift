@@ -10,10 +10,47 @@ import Foundation
 import ObjectMapper
 
 
-class Model: NSObject, Mappable, NSCoding {
+
+//class Test: NSObject, NSCoding {
+//    
+//    override init() {}
+//    
+//    required init?(_ x: String){
+//        
+//    }
+//    
+//    required convenience init?(coder aDecoder: NSCoder) {
+//        if let x = aDecoder.decodeObject() as? String {
+//            if let y = x.stringByRemovingPercentEncoding {
+//                self.init(y)
+//            }else{
+//                return nil
+//            }
+//        }else{
+//            return nil
+//        }
+//    }
+//    
+//    func encodeWithCoder(aCoder: NSCoder) {
+//    
+//    }
+//}
+//
+//class MyTest: Test {
+//    
+//    var z = "aloha"
+//}
+
+//protocol Smappable {
+//    
+//    init?(_ map: String)
+//    
+//}
+
+class Model: NSObject, NSCoding, Mappable {
     
     func encodeWithCoder(aCoder: NSCoder) {
-        aCoder.encodeObject(Mapper().toJSON(self))
+        aCoder.encodeObject(Mapper().toJSONString(self))
     }
     
     required convenience init?(coder aDecoder: NSCoder){
@@ -30,11 +67,21 @@ class Model: NSObject, Mappable, NSCoding {
     }
     
     required init?(_ map: Map) {
-        
+        super.init()
+        mapping(map)
     }
     
     func mapping(map: Map) {
         // override me!
+    }
+
+    func key() -> String? {
+        // override me!
+        return nil
+    }
+    
+    override var description: String {
+        return self.toJSONString(true)!
     }
     
     //Mapper will do this, but annoyingly, Swift complains about ambiguous parseJSONDictionary
@@ -55,11 +102,16 @@ class Model: NSObject, Mappable, NSCoding {
         return nil
     }
     
-    func duplicate<T: Model>() -> T {
-        return Mapper<T>().map(Mapper().toJSONString(self)!)!
+    func duplicate<T: Model>() -> T? {
+        let data = NSKeyedArchiver.archivedDataWithRootObject(self)
+        return NSKeyedUnarchiver.unarchiveObjectWithData(data) as? T
+
     }
 }
 
+extension NSCoding {
+
+}
 
 //
 //enum Operation {
