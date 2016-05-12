@@ -11,7 +11,6 @@ import PromiseKit
 import Alamofire
 import AlamofireObjectMapper
 import ObjectMapper
-import YapDatabase
 
 /**
  *  For GET and HEAD requests, put the data in the query string.
@@ -61,11 +60,6 @@ class Server {
         self.baseURL = baseURL
     }
     
-    private static func wasUnserializable(e: NSError) -> Bool {
-        return e.domain == Alamofire.Error.Domain
-            && e.code == Alamofire.Error.Code.DataSerializationFailed.rawValue
-    }
-    
     /**
      * Lightweight wrapper for Alamofire which uses stored headers by default and handles relative paths
      */
@@ -92,14 +86,10 @@ class Server {
         return data
     }
     
-    private func serializeError(msg: String) -> ErrorType {
-        Error.errorWithCode(.JSONSerializationFailed, failureReason: "Unable to map response to type \(msg)")
-    }
-    
     /**
      * request method based on the FIXD api. Attempts to serialize the given object. Used for Find,Create,Update,Destroy
      */
-    func requestMappable<T: Model>(
+    func requestModel<T: Model>(
         object: T? = nil,
         path: String? = nil,
         op: Operation,
@@ -109,68 +99,95 @@ class Server {
         if object == nil && path == nil {
             fatalError("Must supply either object or path!")
         }
-        return Promise {fulfill, reject in
-            var stoppedForError = false
-            
-            let path = path ?? object!.getPathForOperation(op)
-            
-            self.request(path,
-                method: op.method,
-                encoding: op.method.encoding,
-                parameters: Server.createPayload(object, parameters: parameters),
-                headers: headers
-            ).responseObject { (response: Response<NetworkError, NSError>) in
-                if let e = response.result.value {
-                    reject(e)
-                    stoppedForError = true
-                }else if let e = response.result.error {
-                    if !Server.wasUnserializable(e){
-                        reject(e)
-                        stoppedForError = true
-                    }
-                }
-            }.responseObject(keyPath: T.self.responseJSONKey) { (response: Response<T, NSError>) in
-                if stoppedForError {
-                    return
-                }else if let e = response.result.error {
-                    reject(e)
-                }else if let v = response.result.value {
-                    fulfill(v)
-                }else{
-                    reject(self.serializeError("\(T.self): \(response)"))
-                }
+        
+        let (promise, fulfill, reject) = Promise<T>.pendingPromise()
+        
+        let path = path ?? object!.getPathForOperation(op)
+        let method = op.method
+        let encoding = op.method.encoding
+        let data = Server.createPayload(object, parameters: parameters)
+        
+        self.request(path, method: method, encoding: encoding, parameters: data, headers: headers)
+            .responseNetworkError(promise, reject: reject)
+            .responseHandlePromise(T.self.responseJSONKey, promise: promise, fulfill: fulfill, reject: reject)
+        
+        return promise
+    }
+    
+    func requestModelArray<T: Model>(path: String, parameters: [String: AnyObject]? = nil, headers: [String:String]? = nil) -> Promise<[T]> {
+        let (promise, fulfill, reject) = Promise<[T]>.pendingPromise()
+        self.request(path, method: .GET, encoding: .URLEncodedInURL, parameters: parameters, headers: headers)
+            .responseNetworkError(promise, reject: reject)
+            .responseArrayHandlePromise(T.self.responseJSONKey, promise: promise, fulfill: fulfill, reject: reject)
+        
+        return promise
+    }
+}
+
+extension Request {
+    
+    public static func NetworkErrorSerializer() -> ResponseSerializer<NetworkError, NSError> {
+        
+        return ResponseSerializer { request, response, data, error in
+            guard error == nil else { return .Failure(error!) }
+            //proxy off ObjectMapperSerializer, but if mapping is success, fail with it
+            let r: ResponseSerializer<NetworkError, NSError> = Request.ObjectMapperSerializer(nil, mapToObject: nil)
+            let result = r.serializeResponse(request, response, data, error)
+            if let netErr = result.value {
+                return .Failure(netErr)
+            }else{
+                return result
             }
         }
     }
     
-    func requestMappableArray<T: Model>(path: String, parameters: [String: AnyObject]? = nil, headers: [String:String]? = nil) -> Promise<[T]> {
-        return Promise {fulfill, reject in
-            var stoppedForError = false
-            self.request(path, method: .GET, encoding: .URLEncodedInURL, parameters: parameters, headers: headers).responseObject { (response: Response<NetworkError, NSError>) in
-                if let e = response.result.value {
-                    reject(e)
-                    stoppedForError = true
-                }else if let e = response.result.error {
-                    if !Server.wasUnserializable(e){
-                        reject(e)
-                        stoppedForError = true
-                    }
-                }
-            }.responseArray(keyPath: T.self.responseJSONKey) { (response: Response<[T], NSError>) in
-                if stoppedForError {
-                    return
-                }
-                if let e = response.result.error {
-                    reject(e)
-                }else if let v = response.result.value {
-                    fulfill(v)
-                }else{
-                    reject(self.serializeError("\(T.self): \(response)"))
-                }
+    // take in a promise which will be rejected if there was a problem
+    public func responseNetworkError<T>(promise: Promise<T>, reject: (ErrorType->Void)) -> Self {
+        return response(responseSerializer: Request.NetworkErrorSerializer()) { response in
+            if promise.pending, let e = response.result.error where !(e as NSError).isObjectUnserializable {
+                reject(e)
+            }
+        }
+    }
+    
+    // filfill or reject a promise based on ability to object map
+    public func responseHandlePromise<T: Mappable>(keyPath: String? = nil, promise: Promise<T>, fulfill: (T->Void), reject: (ErrorType->Void)) -> Self {
+        return response(responseSerializer: Request.ObjectMapperSerializer(keyPath, mapToObject: nil) ){ (response: Response<T, NSError>) in
+            if !promise.pending {
+                return
+            }else if let e = response.result.error {
+                reject(e)
+            }else if let v = response.result.value {
+                fulfill(v)
+            }else{
+                reject(Error.errorWithCode(.JSONSerializationFailed, failureReason: "Unable to map response to type \(T.self): \(response)"))
+            }
+        }
+    }
+    
+    // same as above for arrays
+    public func responseArrayHandlePromise<T: Mappable>(keyPath: String? = nil, promise: Promise<[T]>, fulfill: ([T]->Void), reject: (ErrorType->Void)) -> Self {
+        return response(responseSerializer: Request.ObjectMapperArraySerializer(keyPath)){ (response: Response<[T], NSError>) in
+            if !promise.pending {
+                return
+            }else if let e = response.result.error {
+                reject(e)
+            }else if let v = response.result.value {
+                fulfill(v)
+            }else{
+                reject(Error.errorWithCode(.JSONSerializationFailed, failureReason: "Unable to map array response to type \(T.self): \(response)"))
             }
         }
     }
 }
+
+extension NSError {
+    private var isObjectUnserializable: Bool {
+        return self.domain == Alamofire.Error.Domain
+            && self.code == Alamofire.Error.Code.DataSerializationFailed.rawValue
+    }
+}
+
 
 // TODO: saving timestamps as metadata on objects could be valueable for automatic caching of network responses
 // maybe createdAt and updatedAt from the server, plus a local update and/or last network request timestamp
@@ -179,9 +196,9 @@ class Server {
 /**
  *  Class representing error response objects from the server
  */
-class NetworkError: NSError, Mappable {
+public class NetworkError: NSError, Mappable {
     
-    required init?(_ map: Map) {
+    required public init?(_ map: Map) {
         if map["status"].value() == "ERROR", let type: String = map["error.type"].value() {
             super.init(domain: type, code: NetworkError.getCode(type), userInfo: map["error"].value())
         }else{
@@ -191,15 +208,15 @@ class NetworkError: NSError, Mappable {
         }
     }
     
-    override var localizedDescription: String {
+    override public var localizedDescription: String {
         return (userInfo["message"] as? String) ?? domain
     }
 
-    required init?(coder aDecoder: NSCoder) {
+    required public init?(coder aDecoder: NSCoder) {
         super.init(coder: aDecoder)
     }
     
-    func mapping(map: Map) {
+    public func mapping(map: Map) {
         //no-op. since NSErrors are immutable, we have to do mapping on init
     }
     
