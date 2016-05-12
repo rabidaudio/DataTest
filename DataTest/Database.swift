@@ -30,11 +30,6 @@ class User: Model {
         id <- map["id"]
         email <- map["email"]
         authToken <- map["authentication_token"]
-        
-//        // only include password on outgoing
-//        if map.mappingType == .ToJSON && password != nil {
-//            password <- map["password"]
-//        }
     }
 }
 
@@ -95,8 +90,8 @@ class Database {
         MakeModelYear.self
     ]
     
+    // keep our database and collections private to enforce writes off-main
     private let database: YapDatabase
-    
     private let uiConnection: YapDatabaseConnection
     private let backgroundConnection: YapDatabaseConnection
     
@@ -107,18 +102,23 @@ class Database {
         let path = baseDir.stringByAppendingPathComponent("fixd.sqlite")
         database = YapDatabase(path: path, serializer: Database.serialize, deserializer: Database.deserialize)
         
+        // create views here
+        
         uiConnection = database.newConnection()
         backgroundConnection = database.newConnection()
     }
     
     static func serialize(collection: String, key: String, object: AnyObject) -> NSData {
         if let object = object as? Model {
+            // while we could serialize the JSON string directly, it is a bit more performant
+            // to serialize the parameter mapping ([String:AnyObject]) format instead
             return NSKeyedArchiver.archivedDataWithRootObject(object.toJSON())
         }
 //        return YapDatabase.defaultSerializer()(collection, key, object)
         fatalError("Object \(collection) \(key) was not Model type: \(object)")
     }
     
+    // convert collection name to a type (needed for deserialize)
     private static var modelMap: [String: Model.Type] = {
         var m = [String: Model.Type]()
         for claz in modelClasses {
@@ -130,11 +130,9 @@ class Database {
     static func deserialize(collection: String, key: String, data: NSData) -> AnyObject {
         if let json = NSKeyedUnarchiver.unarchiveObjectWithData(data) as? [String: AnyObject] {
             let map = Map(mappingType: .FromJSON, JSONDictionary: json, toObject: false)
-            if let T = modelMap[collection] {
-                if var object = T.init(map) {
-                    object.mapping(map)
-                    return object as! AnyObject
-                }
+            if let T = modelMap[collection], var object = T.init(map) {
+                object.mapping(map)
+                return object as! AnyObject
             }
         }
 //        return YapDatabase.defaultDeserializer()(collection, key, data)

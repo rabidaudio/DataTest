@@ -62,7 +62,8 @@ class Server {
     }
     
     private static func wasUnserializable(e: NSError) -> Bool {
-        return e.domain == Alamofire.Error.Domain && e.code == Alamofire.Error.Code.DataSerializationFailed.rawValue
+        return e.domain == Alamofire.Error.Domain
+            && e.code == Alamofire.Error.Code.DataSerializationFailed.rawValue
     }
     
     /**
@@ -80,6 +81,21 @@ class Server {
         return Alamofire.request(method, url, parameters: parameters, encoding: encoding, headers: requestHeaders)
     }
     
+    private static func createPayload<T: Model>(object: T?, parameters: [String: AnyObject]?) -> [String: AnyObject]{
+        var data: [String: AnyObject] = [:]
+        if let object = object {
+            data = data + [T.self.requestJSONKey : object.toJSON()]
+        }
+        if let parameters = parameters {
+            data = data + parameters
+        }
+        return data
+    }
+    
+    private func serializeError(msg: String) -> ErrorType {
+        Error.errorWithCode(.JSONSerializationFailed, failureReason: "Unable to map response to type \(msg)")
+    }
+    
     /**
      * request method based on the FIXD api. Attempts to serialize the given object. Used for Find,Create,Update,Destroy
      */
@@ -95,18 +111,13 @@ class Server {
         }
         return Promise {fulfill, reject in
             var stoppedForError = false
-            var data: [String:AnyObject] = [:]
-            if let object = object {
-                data = data + [T.self.requestJSONKey : object.toJSON()]
-            }
-            if let parameters = parameters {
-                data = data + parameters
-            }
+            
             let path = path ?? object!.getPathForOperation(op)
+            
             self.request(path,
                 method: op.method,
                 encoding: op.method.encoding,
-                parameters: data,
+                parameters: Server.createPayload(object, parameters: parameters),
                 headers: headers
             ).responseObject { (response: Response<NetworkError, NSError>) in
                 if let e = response.result.value {
@@ -126,7 +137,7 @@ class Server {
                 }else if let v = response.result.value {
                     fulfill(v)
                 }else{
-                    reject(Error.errorWithCode(.JSONSerializationFailed, failureReason: "Unable to map response to type \(T.self): \(response)"))
+                    reject(self.serializeError("\(T.self): \(response)"))
                 }
             }
         }
@@ -154,7 +165,7 @@ class Server {
                 }else if let v = response.result.value {
                     fulfill(v)
                 }else{
-                    reject(Error.errorWithCode(.JSONSerializationFailed, failureReason: "Unable to map response to type \(T.self): \(response)"))
+                    reject(self.serializeError("\(T.self): \(response)"))
                 }
             }
         }
