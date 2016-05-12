@@ -24,21 +24,21 @@ class DataSource {
     }
     
     func create<T: Model>(object: T, path: String? = nil, parameters: [String: AnyObject]? = nil) -> Promise<T> {
-        let copy: T = object.duplicate()!
+        let copy = object.duplicate()
         return self.server.requestModel(copy, path: path, op: .Create, parameters: parameters).thenInBackground { newObject -> T in
             return self.database.saveItemAsIs(newObject)
         }
     }
     
     func update<T: Model>(object: T, path: String? = nil, parameters: [String: AnyObject]? = nil, block: T -> T) -> Promise<T> {
-        let updatedCopy = block(object.duplicate()!)
+        let updatedCopy = block(object.duplicate())
         return self.server.requestModel(updatedCopy, path: path, op: .Update, parameters: parameters).thenInBackground { newObject -> T in
             return self.database.saveItemAsIs(newObject)
         }
     }
     
     func destroy<T: Model>(object: T, path: String? = nil, parameters: [String:AnyObject]? = nil) -> Promise<T> {
-        let copy: T = object.duplicate()!
+        let copy = object.duplicate()
         return self.server.requestModel(copy, path: path, op: .Destroy, parameters: parameters).thenInBackground { _ -> T in
             self.database.writeChanges() { transaction in
                 if let key = copy.key {

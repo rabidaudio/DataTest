@@ -144,7 +144,8 @@ class Database {
     }
     
     func setChangeObserver(observer: AnyObject, selector: Selector) {
-        NSNotificationCenter.defaultCenter().addObserver(observer, selector: selector, name: YapDatabaseModifiedNotification, object: database)
+        NSNotificationCenter.defaultCenter()
+            .addObserver(observer, selector: selector, name: YapDatabaseModifiedNotification, object: database)
     }
     
     func readItemForKey<T: Model>(key: String, inCollection: String?) -> T? {
@@ -167,9 +168,9 @@ class Database {
         backgroundConnection.readWriteWithBlock(block)
     }
     
-    private func writeToTransaction<T: Model>(transaction: YapDatabaseReadWriteTransaction, item: T) {
+    private func writeToTransaction(transaction: YapDatabaseReadWriteTransaction, item: Model) {
         if let key = item.key, let object = item as? AnyObject {
-            transaction.setObject(object, forKey: key, inCollection: T.self.collectionName)
+            transaction.setObject(object, forKey: key, inCollection: item.dynamicType.collectionName)
         }
     }
     
@@ -178,7 +179,7 @@ class Database {
      *  where manipulations can be made safely. after the supplied block is completed, the object is saved
      */
     func changeItem<T: Model>(item: T, block: (T, YapDatabaseReadWriteTransaction) -> T) -> T {
-        let copy: T = item.duplicate()!
+        let copy = item.duplicate()
         var newValue: T?
         writeChanges() { transaction in
             newValue = block(copy, transaction)

@@ -75,10 +75,10 @@ class Server {
         return Alamofire.request(method, url, parameters: parameters, encoding: encoding, headers: requestHeaders)
     }
     
-    private static func createPayload<T: Model>(object: T?, parameters: [String: AnyObject]?) -> [String: AnyObject]{
+    private static func createPayload(object: Model?, parameters: [String: AnyObject]?) -> [String: AnyObject]{
         var data: [String: AnyObject] = [:]
         if let object = object {
-            data = data + [T.self.requestJSONKey : object.toJSON()]
+            data = data + [object.dynamicType.requestJSONKey : object.toJSON()]
         }
         if let parameters = parameters {
             data = data + parameters
