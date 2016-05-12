@@ -119,8 +119,8 @@ protocol Model: Mappable {
     
     func getPathForOperation(op: Operation) -> String
     
-    var requestJSONKey: String { get }
-    var responseJSONKey: String { get }
+    static var requestJSONKey: String { get }
+    static var responseJSONKey: String { get }
     static var collectionName: String { get }
 }
 
@@ -150,11 +150,11 @@ extension Model {
         }
     }
 
-    var responseJSONKey: String {
+    static var responseJSONKey: String {
         return "data"
     }
     
-    var requestJSONKey: String {
+    static var requestJSONKey: String {
         return Self.entityName.lowercaseString
     }
     
@@ -168,13 +168,6 @@ extension Model {
         return T(Map(mappingType: .FromJSON, JSONDictionary: self.toJSON()))
     }
 }
-
-//extension Model {
-//    
-//    func create(){
-//        Server.instance.request(<#T##path: String##String#>, method: <#T##Method#>)
-//    }
-//}
 
 //extension NSManagedObject {
 //    

@@ -11,6 +11,7 @@ def shared_pods
 
   #pod 'Mantle', '~> 2.0.7'
   pod 'ObjectMapper', '~> 1.1.5'
+  pod 'AlamofireObjectMapper', '~> 3.0'
 
   pod 'YapDatabase', '~> 2.9'
 

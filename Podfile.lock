@@ -1,5 +1,8 @@
 PODS:
   - Alamofire (3.2.1)
+  - AlamofireObjectMapper (3.0.0):
+    - Alamofire (~> 3.2)
+    - ObjectMapper (~> 1.0)
   - CocoaLumberjack (2.3.0):
     - CocoaLumberjack/Default (= 2.3.0)
     - CocoaLumberjack/Extensions (= 2.3.0)
@@ -85,6 +88,7 @@ PODS:
 
 DEPENDENCIES:
   - Alamofire (~> 3.2.1)
+  - AlamofireObjectMapper (~> 3.0)
   - ObjectMapper (~> 1.1.5)
   - Pluralize.swift (from `https://github.com/sammy-SC/Pluralize.swift.git`, branch
     `master`)
@@ -105,6 +109,7 @@ CHECKOUT OPTIONS:
 
 SPEC CHECKSUMS:
   Alamofire: f11d8624a05f5d39e0c99309b3e600a3ba64298a
+  AlamofireObjectMapper: 2d16585d06177be0116d76de73497e77437798af
   CocoaLumberjack: 97fab7ee5f507fe54445cca7ea80f926729cfd15
   ObjectMapper: 528b1a6677a6acac7747edd508576983e76a9148
   OMGHTTPURLRQ: 633f98ee745aeda02345935a52eec1784cddb589

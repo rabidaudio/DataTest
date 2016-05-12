@@ -16,6 +16,7 @@ class User: Model {
     
     var id: Int?
     var email: String?
+    var authToken: String?
     
     required init?(_ map: Map) {
         
@@ -28,6 +29,12 @@ class User: Model {
     func mapping(map: Map) {
         id <- map["id"]
         email <- map["email"]
+        authToken <- map["authentication_token"]
+        
+//        // only include password on outgoing
+//        if map.mappingType == .ToJSON && password != nil {
+//            password <- map["password"]
+//        }
     }
 }
 
@@ -100,19 +107,11 @@ class Database {
         backgroundConnection = database.newConnection()
     }
     
-    /*
-    * defaultSerializer = ^(NSString *collection, NSString *key, id object){
-    *     return [NSKeyedArchiver archivedDataWithRootObject:object];
-    * };
-    * defaultDeserializer = ^(NSString *collection, NSString *key, NSData *data) {
-    *     return [NSKeyedUnarchiver unarchiveObjectWithData:data];
-    * };
-    */
-    
     static func serialize(collection: String, key: String, object: AnyObject) -> NSData {
         if let object = object as? Model {
             return NSKeyedArchiver.archivedDataWithRootObject(object.toJSON())
         }
+//        return YapDatabase.defaultSerializer()(collection, key, object)
         fatalError("Object \(collection) \(key) was not Model type: \(object)")
     }
     
@@ -134,7 +133,16 @@ class Database {
                 return object
             }
         }
+//        return YapDatabase.defaultDeserializer()(collection, key, data)
         fatalError("Problem deserializing \(collection) \(key)! data size: \(data.length)")
+    }
+    
+    func beginLongLivedReadTransaction() -> ([NSNotification], YapDatabaseConnection) {
+        return (uiConnection.beginLongLivedReadTransaction(), uiConnection)
+    }
+    
+    func setChangeObserver(observer: AnyObject, selector: Selector) {
+        NSNotificationCenter.defaultCenter().addObserver(observer, selector: selector, name: YapDatabaseModifiedNotification, object: database)
     }
     
     /**
@@ -152,9 +160,11 @@ class Database {
     /**
      *  Begin a background write transaction, automatically duplicating the item given before use
      */
-    func beginChangesToItem<T: Model>(item: T, block: (YapDatabaseReadWriteTransaction, T) -> Void) {
+    func beginChangesToItem<T: Model>(item: T, block: (YapDatabaseReadWriteTransaction, T) -> Void) -> T {
+        let copy: T = item.duplicate()!
         writeChanges() { transaction in
-            block(transaction, item.duplicate()!)
+            block(transaction, copy)
         }
+        return copy
     }
 }
