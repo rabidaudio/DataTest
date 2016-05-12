@@ -10,30 +10,49 @@ import UIKit
 
 import YapDatabase
 import ObjectMapper
+import PromiseKit
+
+func doAsyncAfter(seconds: NSTimeInterval, task: (Void -> Void)) {
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, Int64((seconds as Double) * Double(NSEC_PER_SEC))), dispatch_get_main_queue(), task)
+}
 
 class ViewController: UIViewController {
     
     var user: User!
+    
+    let dataSource = DataSource()
 
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
         
         user = User()
-        user.email = "woopee@doo"
+        user.email = "julian@fixdapp.com"
         
-        Server.instance.create(user, parameters: ["user": ["password": "password"]]).then { newUser -> Void in
+        self.dataSource.database.beginLongLivedReadTransaction()
+        self.dataSource.database.setChangeObserver(self, selector: "onDatabaseChange:")
+        
+        dataSource.create(user, path: "users/current", parameters: ["user": ["password": ""]]).then { newUser -> Void in
             print("user created: \(newUser), \(self.user)")
             
-            Database.instance.beginLongLivedReadTransaction()
-            Database.instance.setChangeObserver(self, selector: "onDatabaseChange:")
+            self.user = newUser
+            
+            doAsyncAfter(1) {
+                Promise().thenInBackground {
+                    self.dataSource.database.changeItem(self.user) { item, _ in
+                        item.email = ":)"
+                        return item
+                    }
+                }
+            }
+            
         }.error { err in
             print("err: \(err)")
         }
     }
     
     func onDatabaseChange(notification: NSNotification) {
-        let (notifications, connection) = Database.instance.beginLongLivedReadTransaction()
+        let (notifications, connection) = self.dataSource.database.beginLongLivedReadTransaction()
         if notifications.isEmpty {
             return
         }
@@ -42,6 +61,7 @@ class ViewController: UIViewController {
         }
         if let key = user.key {
             if connection.hasChangeForKey(key, inCollection: User.collectionName, inNotifications: notifications) {
+                self.user = self.dataSource.database.readItemForKey(key, inCollection: User.collectionName)
                 print("user changed: \(user.email)")
             }
         }

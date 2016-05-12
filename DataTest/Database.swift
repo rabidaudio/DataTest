@@ -23,7 +23,7 @@ class User: Model {
     }
     
     var key: String? {
-        return idToString(id)
+        return id?.string
     }
     
     func mapping(map: Map) {
@@ -81,7 +81,7 @@ class MakeModelYear: Model {
     }
     
     var key: String? {
-        return idToString(id)
+        return id?.string
     }
 }
 
@@ -89,14 +89,18 @@ class MakeModelYear: Model {
 
 class Database {
     
-    static private(set) var instance = Database()
+    static let modelClasses: [Model.Type] = [
+        User.self,
+        Vehicle.self,
+        MakeModelYear.self
+    ]
     
     private let database: YapDatabase
     
     private let uiConnection: YapDatabaseConnection
     private let backgroundConnection: YapDatabaseConnection
     
-    private init(){
+    init(){
         // get path for sqlite database (right from the docs)
         let paths = NSSearchPathForDirectoriesInDomains(.DocumentDirectory, NSSearchPathDomainMask.UserDomainMask, true)
         let baseDir: NSString = paths.first ?? NSTemporaryDirectory()
@@ -115,22 +119,22 @@ class Database {
         fatalError("Object \(collection) \(key) was not Model type: \(object)")
     }
     
+    private static var modelMap: [String: Model.Type] = {
+        var m = [String: Model.Type]()
+        for claz in modelClasses {
+            m[claz.collectionName] = claz
+        }
+        return m
+    }()
+    
     static func deserialize(collection: String, key: String, data: NSData) -> AnyObject {
         if let json = NSKeyedUnarchiver.unarchiveObjectWithData(data) as? [String: AnyObject] {
             let map = Map(mappingType: .FromJSON, JSONDictionary: json, toObject: false)
-            var object: AnyObject?
-            switch(collection){
-            case User.collectionName:
-                object = User(map)
-            case Vehicle.collectionName:
-                object = Vehicle(map)
-            case MakeModelYear.collectionName:
-                object = MakeModelYear(map)
-            default:
-                break
-            }
-            if let object = object {
-                return object
+            if let T = modelMap[collection] {
+                if var object = T.init(map) {
+                    object.mapping(map)
+                    return object as! AnyObject
+                }
             }
         }
 //        return YapDatabase.defaultDeserializer()(collection, key, data)
@@ -145,6 +149,14 @@ class Database {
         NSNotificationCenter.defaultCenter().addObserver(observer, selector: selector, name: YapDatabaseModifiedNotification, object: database)
     }
     
+    func readItemForKey<T: Model>(key: String, inCollection: String?) -> T? {
+        var t: T?
+        uiConnection.readWithBlock() { transaction in
+            t = transaction.objectForKey(key, inCollection: inCollection) as? T
+        }
+        return t
+    }
+    
     /**
      * Begin a background transaction. Don't forget to duplicate any items before manipulating them, as
      * they are likely not thread-safe. If you are only changing one item, use beginChangesToItem() which
@@ -157,14 +169,39 @@ class Database {
         backgroundConnection.readWriteWithBlock(block)
     }
     
-    /**
-     *  Begin a background write transaction, automatically duplicating the item given before use
-     */
-    func beginChangesToItem<T: Model>(item: T, block: (YapDatabaseReadWriteTransaction, T) -> Void) -> T {
-        let copy: T = item.duplicate()!
-        writeChanges() { transaction in
-            block(transaction, copy)
+    private func writeToTransaction<T: Model>(transaction: YapDatabaseReadWriteTransaction, item: T) {
+        if let key = item.key, let object = item as? AnyObject {
+            transaction.setObject(object, forKey: key, inCollection: T.self.collectionName)
         }
-        return copy
+    }
+    
+    /**
+     *  Prepare a background write transaction, automatically duplicating the item given before use,
+     *  where manipulations can be made safely. after the supplied block is completed, the object is saved
+     */
+    func changeItem<T: Model>(item: T, block: (T, YapDatabaseReadWriteTransaction) -> T) -> T {
+        let copy: T = item.duplicate()!
+        var newValue: T?
+        writeChanges() { transaction in
+            newValue = block(copy, transaction)
+            self.writeToTransaction(transaction, item: newValue!)
+        }
+        return newValue!
+    }
+    
+    func saveItemAsIs<T: Model>(item: T) -> T {
+        writeChanges() { transaction in
+            self.writeToTransaction(transaction, item: item)
+        }
+        return item
+    }
+    
+    func saveItemsAsIs<T: Model>(items: [T]) -> [T] {
+        writeChanges() { transaction in
+            for item in items {
+                self.writeToTransaction(transaction, item: item)
+            }
+        }
+        return items
     }
 }

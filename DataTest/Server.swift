@@ -12,17 +12,17 @@ import Alamofire
 import AlamofireObjectMapper
 import ObjectMapper
 import YapDatabase
-//import SwiftyJSON
 
+/**
+ *  For GET and HEAD requests, put the data in the query string.
+ *  For all other requests, encode as JSON in request body
+ */
 extension Alamofire.Method {
-    
     private var encoding: ParameterEncoding {
         switch self {
         case .HEAD:
             fallthrough
         case .GET:
-            fallthrough
-        case .DELETE:
             return ParameterEncoding.URLEncodedInURL
         default:
             return ParameterEncoding.JSON
@@ -30,8 +30,8 @@ extension Alamofire.Method {
     }
 }
 
+
 extension Operation {
-    
     private var method: Alamofire.Method {
         switch self {
         case .Find:
@@ -50,17 +50,14 @@ extension Operation {
 
 class Server {
     
-    static let instance = Server(baseURL: NSURL(string: "https://fixdapp.ngrok.io/api/v2/")!)
-    
     let baseURL: NSURL
     
-    var headers: [String : String] = [
+    var headers = [
         "Content-Type": "application/json",
-        "Accept": "application/json",
-        "X-Verbose-Response": "false"
+        "Accept": "application/json"
     ]
     
-    private init(baseURL: NSURL){
+    init(baseURL: NSURL){
         self.baseURL = baseURL
     }
     
@@ -83,17 +80,8 @@ class Server {
         return Alamofire.request(method, url, parameters: parameters, encoding: encoding, headers: requestHeaders)
     }
     
-//    private func handleNetworkError(request: Request) -> Request {
-//        return request.responseJSON { response in
-//            if let x = response.result.value as? [String:AnyObject] {
-//                
-//            }
-//        }
-//        return request
-//    }
-    
     /**
-     * request method based on the FIXD api. Attempts to serialize the given object. Use for Find,Create,Update,Destroy
+     * request method based on the FIXD api. Attempts to serialize the given object. Used for Find,Create,Update,Destroy
      */
     func requestMappable<T: Model>(
         object: T? = nil,
@@ -144,132 +132,42 @@ class Server {
         }
     }
     
-    func create<T: Model>(object: T, path: String? = nil, parameters: [String: AnyObject]? = nil) -> Promise<T> {
-        return requestMappable(object, path: path, op: .Create, parameters: parameters).thenInBackground { newObject -> T in
-            Database.instance.writeChanges() { transaction in
-                if let key = newObject.key, let object = newObject as? AnyObject {
-                    transaction.setObject(object, forKey: key, inCollection: T.self.collectionName)
-                }
-            }
-            return newObject
-        }
-    }
-    
-    func update<T: Model>(object: T, path: String? = nil, parameters: [String: AnyObject]? = nil, block: ((YapDatabaseReadWriteTransaction, T) -> Void)) -> Promise<T> {
-        return Promise().thenInBackground {
-            Database.instance.beginChangesToItem(object, block: block)
-        }.then { _ in
-            return self.requestMappable(object, path: path, op: .Update, parameters: parameters)
-        }.thenInBackground { newObject in
-            Database.instance.writeChanges() { transaction in
-                if let key = newObject.key, let object = newObject as? AnyObject {
-                    transaction.setObject(object, forKey: key, inCollection: T.self.collectionName)
-                }
-            }
-            return Promise(newObject)
-        }
-    }
-    
-    func destroy<T: Model>(object: T, path: String? = nil, parameters: [String:AnyObject]? = nil) -> Promise<T> {
-        let newObject: T = object.duplicate()!
-        return requestMappable(newObject, path: path, op: .Destroy, parameters: parameters).thenInBackground { _ -> T in
-            Database.instance.writeChanges() { transaction in
-                if let key = newObject.key, let object = newObject as? AnyObject {
-                    transaction.setObject(object, forKey: key, inCollection: T.self.collectionName)
-                }
-            }
-            return newObject
-        }
-    }
-    
-    func find<T: Model>(path: String, parameters: [String:AnyObject]? = nil) -> Promise<T> {
-        return requestMappable(nil, path: path, op: .Find, parameters: parameters).thenInBackground { (object: T) -> Promise<T> in
-            Database.instance.writeChanges() { transaction in
-                if let key = object.key {
-                    transaction.setObject(object as? AnyObject, forKey: key, inCollection: T.self.collectionName)
-                }
-            }
-            return Promise(object)
-        }
-    }
-    
-    func query<T: Model>(path: String, parameters: [String: AnyObject] = [:], headers: [String:String]? = nil) -> Promise<[T]> {
-            return Promise {fulfill, reject in
-                self.request(path, method: .GET, encoding: .URLEncodedInURL, parameters: parameters, headers: headers).responseObject { (response: Response<NetworkError, NSError>) in
-                    if let e = response.result.value {
+    func requestMappableArray<T: Model>(path: String, parameters: [String: AnyObject]? = nil, headers: [String:String]? = nil) -> Promise<[T]> {
+        return Promise {fulfill, reject in
+            var stoppedForError = false
+            self.request(path, method: .GET, encoding: .URLEncodedInURL, parameters: parameters, headers: headers).responseObject { (response: Response<NetworkError, NSError>) in
+                if let e = response.result.value {
+                    reject(e)
+                    stoppedForError = true
+                }else if let e = response.result.error {
+                    if !Server.wasUnserializable(e){
                         reject(e)
-                    }else if let e = response.result.error {
-                        if !Server.wasUnserializable(e){
-                            reject(e)
-                        }
-                    }
-                }.responseArray(keyPath: T.self.responseJSONKey) { (response: Response<[T], NSError>) in
-                    if let e = response.result.error {
-                        reject(e)
-                    }else if let v = response.result.value {
-                        fulfill(v)
-                    }else{
-                        reject(Error.errorWithCode(.JSONSerializationFailed, failureReason: "Unable to map response to type \(T.self): \(response)"))
+                        stoppedForError = true
                     }
                 }
+            }.responseArray(keyPath: T.self.responseJSONKey) { (response: Response<[T], NSError>) in
+                if stoppedForError {
+                    return
+                }
+                if let e = response.result.error {
+                    reject(e)
+                }else if let v = response.result.value {
+                    fulfill(v)
+                }else{
+                    reject(Error.errorWithCode(.JSONSerializationFailed, failureReason: "Unable to map response to type \(T.self): \(response)"))
+                }
             }
+        }
     }
 }
 
-//func += <KeyType, ValueType> (inout left: Dictionary<KeyType, ValueType>, right: Dictionary<KeyType, ValueType>) {
-//    for (k, v) in right {
-//        
-//        left.updateValue(v, forKey: k)
-//    }
-//}
+// TODO: saving timestamps as metadata on objects could be valueable for automatic caching of network responses
+// maybe createdAt and updatedAt from the server, plus a local update and/or last network request timestamp
+//class TimestampMetadata: Mappable {  }
 
-//func += <K>(inout left: Dictionary<K, AnyObject>, right: Dictionary<K, AnyObject>) {
-//    for (k,v) in right {
-//        if let b = v as? Dictionary<K, AnyObject>, var a = left[k] as? Dictionary<K, AnyObject> {
-//            a += b
-////            left.updateValue(, forKey: k)
-//        }else{
-//            left.updateValue(v, forKey: k)
-//        }
-//    }
-//}
-
-// recursive non-mutating dictonary merge
-func + <K,V>(left: Dictionary<K,V>, right: Dictionary<K,V>) -> Dictionary<K,V> {
-    var map = Dictionary<K,V>()
-    for (k, v) in left {
-        map[k] = v
-    }
-    for (k, v) in right {
-        if let l = map[k] as? Dictionary<K,V>, let r = v as? Dictionary<K,V> {
-            map[k] = ((l + r) as! V)
-        }else{
-            map[k] = v
-        }
-    }
-    return map
-}
-
-
-//class TimestampMetadata: Mappable {
-//    
-//    var createdAt: NSDate?
-//    var updatedAt: NSDate?
-//    var insertedAt = NSDate()
-//    
-//    required init?(_ map: Map) {
-//        
-//    }
-//    
-//    func mapping(map: Map) {
-//        createdAt <- map["created_at"]
-//        updatedAt <- map["updated_at"]
-//        //incoming json from server will never have this,
-//        //  but we want to store it in serialization
-//        insertedAt <- map["_inserted_at"]
-//    }
-//}
-
+/**
+ *  Class representing error response objects from the server
+ */
 class NetworkError: NSError, Mappable {
     
     required init?(_ map: Map) {
@@ -283,10 +181,7 @@ class NetworkError: NSError, Mappable {
     }
     
     override var localizedDescription: String {
-        if let message = userInfo["message"] as? String {
-            return message
-        }
-        return "(null)"
+        return (userInfo["message"] as? String) ?? domain
     }
 
     required init?(coder aDecoder: NSCoder) {
