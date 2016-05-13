@@ -8,6 +8,9 @@
 
 /* Begin PBXBuildFile section */
 		43FB8D67E46584EA1F04A22C /* Pods_DataTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4BB64E77997638384BCB7611 /* Pods_DataTest.framework */; };
+		524BF1F91CE62FE800CBA94D /* View.swift in Sources */ = {isa = PBXBuildFile; fileRef = 524BF1F81CE62FE800CBA94D /* View.swift */; };
+		524BF1FB1CE6302A00CBA94D /* UserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 524BF1FA1CE6302A00CBA94D /* UserView.swift */; };
+		524BF1FD1CE6336F00CBA94D /* VehicleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 524BF1FC1CE6336F00CBA94D /* VehicleView.swift */; };
 		CE3AA5081CE40B3E0007BE2E /* Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE3AA5071CE40B3E0007BE2E /* Utils.swift */; };
 		CE3AA50C1CE40D780007BE2E /* DataSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE3AA50B1CE40D780007BE2E /* DataSource.swift */; };
 		CE88E8951CE2695B00189583 /* Server.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE88E8941CE2695A00189583 /* Server.swift */; };
@@ -36,6 +39,9 @@
 
 /* Begin PBXFileReference section */
 		4BB64E77997638384BCB7611 /* Pods_DataTest.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_DataTest.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		524BF1F81CE62FE800CBA94D /* View.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = View.swift; sourceTree = "<group>"; };
+		524BF1FA1CE6302A00CBA94D /* UserView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = UserView.swift; sourceTree = "<group>"; };
+		524BF1FC1CE6336F00CBA94D /* VehicleView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VehicleView.swift; sourceTree = "<group>"; };
 		7BB3EDAA5585D5B0593B3F22 /* Pods-DataTest.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-DataTest.release.xcconfig"; path = "Pods/Target Support Files/Pods-DataTest/Pods-DataTest.release.xcconfig"; sourceTree = "<group>"; };
 		CE3AA5071CE40B3E0007BE2E /* Utils.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Utils.swift; sourceTree = "<group>"; };
 		CE3AA50B1CE40D780007BE2E /* DataSource.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DataSource.swift; sourceTree = "<group>"; };
@@ -131,6 +137,9 @@
 				CE88E8941CE2695A00189583 /* Server.swift */,
 				CE3AA5071CE40B3E0007BE2E /* Utils.swift */,
 				CE3AA50B1CE40D780007BE2E /* DataSource.swift */,
+				524BF1F81CE62FE800CBA94D /* View.swift */,
+				524BF1FA1CE6302A00CBA94D /* UserView.swift */,
+				524BF1FC1CE6336F00CBA94D /* VehicleView.swift */,
 			);
 			path = DataTest;
 			sourceTree = "<group>";
@@ -297,14 +306,17 @@
 			buildActionMask = 2147483647;
 			files = (
 				CED6E07A1CD7EFAD00735378 /* ViewController.swift in Sources */,
+				524BF1FD1CE6336F00CBA94D /* VehicleView.swift in Sources */,
 				CED6E0A21CD7F0FF00735378 /* MakeModelYear.swift in Sources */,
 				CE3AA5081CE40B3E0007BE2E /* Utils.swift in Sources */,
 				CED6E0A41CD7F0FF00735378 /* Vehicle.swift in Sources */,
 				CED6E0A61CD7F20D00735378 /* Model.swift in Sources */,
 				CED6E0781CD7EFAD00735378 /* AppDelegate.swift in Sources */,
 				CE8A58851CE226E800BEE425 /* Database.swift in Sources */,
+				524BF1FB1CE6302A00CBA94D /* UserView.swift in Sources */,
 				CE88E8951CE2695B00189583 /* Server.swift in Sources */,
 				CE3AA50C1CE40D780007BE2E /* DataSource.swift in Sources */,
+				524BF1F91CE62FE800CBA94D /* View.swift in Sources */,
 				CED6E0801CD7EFAE00735378 /* DataTest.xcdatamodeld in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -18,6 +18,7 @@ class User: Model {
     var id: Int?
     var email: String?
     var authToken: String?
+    var vehicles: [String]?
     
     required init?(_ map: Map) {
         
@@ -28,8 +29,8 @@ class User: Model {
     }
     
     func mapping(map: Map) {
-        id <- map["id"]
-        email <- map["email"]
+        id        <- map["id"]
+        email     <- map["email"]
         authToken <- map["authentication_token"]
     }
 }
@@ -70,160 +71,14 @@ class MakeModelYear: Model {
     }
     
     func mapping(map: Map) {
-        id <- map["id"]
-        make <- map["make"]
+        id    <- map["id"]
+        make  <- map["make"]
         model <- map["model"]
-        year <- map["year"]
+        year  <- map["year"]
     }
     
     var key: String? {
         return id?.string
-    }
-}
-
-// TODO: Optimize Grouping types
-//class View {
-//    
-//    lazy var view: YapDatabaseView = {
-//        let grouping = YapDatabaseViewGrouping.withRowBlock(self.group)
-//        let sorting = YapDatabaseViewSorting.withRowBlock(self.sort)
-//        return YapDatabaseView(grouping: grouping, sorting: sorting)
-//    }()
-//    
-//    func group(transaction: YapDatabaseReadTransaction, collection: String, key: String, object: AnyObject, metadata: AnyObject?) -> String? {
-//        return nil
-//    }
-//    
-//    func sort(transaction: YapDatabaseReadTransaction, group: String,
-//        collectionLeft: String, keyLeft: String, objectLeft: AnyObject, metadataLeft: AnyObject?,
-//        collectionRight: String, keyRight: String, objectRight: AnyObject, metadataRight: AnyObject?) -> NSComparisonResult {
-//            return keyLeft.compare(keyRight)
-//    }
-//}
-
-//class View<T: Model, M: AnyObject>: YapDatabaseView {
-//    
-////    private let group: (YapDatabaseReadTransaction, String, String, T, M?) -> String?
-////    private let sort: (YapDatabaseReadTransaction, String, String, String, T, M?, String, String, T, M?) -> NSComparisonResult
-//    
-//    init(group: ((transaction: YapDatabaseReadTransaction, collection: String, key: String, object: T, metadata: M?) -> String?),
-//        sort: ((transaction: YapDatabaseReadTransaction, group: String,
-//            collectionLeft: String, keyLeft: String, objectLeft: T, metadataLeft: M?,
-//            collectionRight: String, keyRight: String, objectRight: T, metadataRight: M?) -> NSComparisonResult)){
-//                let g = YapDatabaseViewGrouping.withRowBlock() { t, c, k, o, m in
-//                    if let o = o as? T {
-//                        return group(transaction: t, collection: c, key: k, object: o, metadata: m as? M)
-//                    }else{
-//                        return nil
-//                    }
-//                }
-//                
-//                let s = YapDatabaseViewSorting.withRowBlock() { t, g, c1, k1, o1, m1, c2, k2, o2, m2 in
-//                    if let o1 = o1 as? T, o2 = o2 as? T {
-//                        return sort(transaction: t, group: g, collectionLeft: c1, keyLeft: k1, objectLeft: o1, metadataLeft: m1 as? M, collectionRight: c2, keyRight: k2, objectRight: o2, metadataRight: m2 as? M)
-//                    }else{
-//                        return NSComparisonResult(rawValue: 0)!
-//                    }
-//                }
-//        super.init(grouping: g, sorting: s)
-//    }
-//}
-
-protocol Groupable {
-    
-    func group(transaction: YapDatabaseReadTransaction, collection: String, key: String, object: AnyObject?, metadata: AnyObject?) -> String?
-    
-}
-
-protocol Sortable {
-    
-    func sort(transaction: YapDatabaseReadTransaction, group: String,
-                collectionLeft: String, keyLeft: String, objectLeft: AnyObject?, metadataLeft: AnyObject?,
-                collectionRight: String, keyRight: String, objectRight: AnyObject?, metadataRight: AnyObject?) -> NSComparisonResult
-    
-}
-
-protocol Viewable: Groupable, Sortable {
-    
-    var groupType: ViewType { get }
-    var sortType: ViewType { get }
-    
-    var versionTag: String? { get }
-}
-
-extension Viewable {
-    
-    var versionTag: String?{
-        return "0"
-    }
-    
-    private func grouping() -> YapDatabaseViewGrouping {
-        switch(groupType){
-        case .Key:
-            return YapDatabaseViewGrouping.withKeyBlock() { t, c, k in
-                self.group(t, collection: c, key: k, object: nil, metadata: nil)
-            }
-        case .Object:
-            return YapDatabaseViewGrouping.withObjectBlock() { t, c, k, o in
-                self.group(t, collection: c, key: k, object: o, metadata: nil)
-            }
-        case .Metadata:
-            return YapDatabaseViewGrouping.withMetadataBlock() { t, c, k, m in
-                self.group(t, collection: c, key: k, object: nil, metadata: m)
-            }
-        case .Row:
-            return YapDatabaseViewGrouping.withRowBlock() { t, c, k, o, m in
-                self.group(t, collection: c, key: k, object: o, metadata: m)
-            }
-        }
-    }private func sorting() -> YapDatabaseViewSorting {
-        switch(sortType){
-        case .Key:
-            return YapDatabaseViewSorting.withKeyBlock() { t, g, c1, k1, c2, k2 in
-                return self.sort(t, group: g, collectionLeft: c1, keyLeft: k1, objectLeft: nil, metadataLeft: nil, collectionRight: c2, keyRight: k2, objectRight: nil, metadataRight: nil)
-            }
-        case .Object:
-            return YapDatabaseViewSorting.withObjectBlock() { t, g, c1, k1, o1, c2, k2, o2 in
-                return self.sort(t, group: g, collectionLeft: c1, keyLeft: k1, objectLeft: o1, metadataLeft: nil, collectionRight: c2, keyRight: k2, objectRight: o2, metadataRight: nil)
-            }
-        case .Metadata:
-            return YapDatabaseViewSorting.withMetadataBlock() { t, g, c1, k1, m1, c2, k2, m2 in
-                return self.sort(t, group: g, collectionLeft: c1, keyLeft: k1, objectLeft: nil, metadataLeft: m1, collectionRight: c2, keyRight: k2, objectRight: nil, metadataRight: m2)
-            }
-        case .Row:
-            return YapDatabaseViewSorting.withRowBlock() { t, g, c1, k1, o1, m1, c2, k2, o2, m2 in
-                return self.sort(t, group: g, collectionLeft: c1, keyLeft: k1, objectLeft: o1, metadataLeft: m1, collectionRight: c2, keyRight: k2, objectRight: o2, metadataRight: m2)
-            }
-        }
-    }
-    
-    func build() -> YapDatabaseView {
-        return YapDatabaseView(grouping: grouping(), sorting: sorting(), versionTag: versionTag)
-    }
-    
-}
-
-enum ViewType {
-    case Row, Object, Key, Metadata
-}
-
-class CurrentUserView: Viewable {
-    
-    let groupType = ViewType.Key
-    let sortType = ViewType.Key
-    
-    func group(transaction: YapDatabaseReadTransaction, collection: String, key: String, object: AnyObject?, metadata: AnyObject?) -> String? {
-        if key == "1" {
-            return "current_user"
-        }else{
-            return nil
-        }
-    }
-    
-    func sort(transaction: YapDatabaseReadTransaction, group: String,
-        collectionLeft: String, keyLeft: String, objectLeft: AnyObject?, metadataLeft: AnyObject?,
-        collectionRight: String, keyRight: String, objectRight: AnyObject?, metadataRight: AnyObject?) -> NSComparisonResult {
-        return NSComparisonResult.OrderedSame
     }
 }
 
@@ -249,7 +104,8 @@ class Database {
         let path = baseDir.stringByAppendingPathComponent("fixd.sqlite")
         database = YapDatabase(path: path, serializer: Database.serialize, deserializer: Database.deserialize)
         
-//        YapDatabaseViewSorting.
+        database.registerExtension(CurrentUserView().build(), withName: "currentUser")
+        
         
         uiConnection = database.newConnection()
         backgroundConnection = database.newConnection()
@@ -301,6 +157,18 @@ class Database {
             t = transaction.objectForKey(key, inCollection: inCollection) as? T
         }
         return t
+    }
+    
+    func readObjectsFromView<T: Model>(view: String, group: String) -> [T] {
+        var ts = [T]()
+        uiConnection.readWithBlock() { transaction in
+            (transaction.ext(view) as? YapDatabaseViewTransaction)?.enumerateRowsInGroup(group) { c, k, o, m, i, p in
+                if let o = o as? T {
+                    ts[Int(i)] = o
+                }
+            }
+        }
+        return ts
     }
     
     /**

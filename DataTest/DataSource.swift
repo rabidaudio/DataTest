@@ -15,13 +15,23 @@ enum Operation {
 
 class DataSource {
     
+    static let instance = DataSource()
+    
     let server = Server(baseURL: NSURL(string: "https://fixdapp.ngrok.io/api/v2/")!)
     
     let database = Database()
     
-    init(){
+    private init(){
         server.headers["X-Verbose-Response"] = "false"
     }
+    
+    
+    var currentUser: User? {
+        return database.readItemForKey("1", inCollection: User.collectionName)
+    }
+    
+    
+    
     
     func create<T: Model>(object: T, path: String? = nil, parameters: [String: AnyObject]? = nil) -> Promise<T> {
         let copy = object.duplicate()

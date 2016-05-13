@@ -19,8 +19,6 @@ func doAsyncAfter(seconds: NSTimeInterval, task: (Void -> Void)) {
 class ViewController: UIViewController {
     
     var user: User!
-    
-    let dataSource = DataSource()
 
     override func viewDidLoad() {
         super.viewDidLoad()
