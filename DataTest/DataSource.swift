@@ -27,7 +27,9 @@ class DataSource {
     
     
     var currentUser: User? {
-        return database.readItemForKey("1", inCollection: User.collectionName)
+//        return database.readItemForKey("1", inCollection: User.collectionName)
+//        return database.readObjectsFromView(<#T##view: String##String#>, group: <#T##String#>)
+        return database.readItemForKey("current", inCollection: User.collectionName)
     }
     
     

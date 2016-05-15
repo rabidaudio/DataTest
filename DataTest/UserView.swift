@@ -13,12 +13,15 @@ class CurrentUserView: Viewable {
     typealias ObjectType = User
     typealias MetadataType = [String: AnyObject]
     
+    static let name = "CurrentUser"
+    
     let groupType = ViewType.Metadata
     let sortType = ViewType.Row
     
     
     func group(transaction: YapDatabaseReadTransaction, collection: String, key: String, object: User!, metadata: [String:AnyObject]?) -> String? {
         if let current = metadata?["current"] as? Bool where collection == User.collectionName {
+//        if let DataSource.instance.currentUser?.key {
             return current ? "current" : nil
         }else{
             return nil

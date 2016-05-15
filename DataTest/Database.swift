@@ -92,7 +92,7 @@ class Database {
         MakeModelYear.self
     ]
     
-    // keep our database and collections private to enforce writes off-main
+    // keep our database and collections private to enforce sharing connections and writes off-main
     private let database: YapDatabase
     private let uiConnection: YapDatabaseConnection
     private let backgroundConnection: YapDatabaseConnection
@@ -104,8 +104,9 @@ class Database {
         let path = baseDir.stringByAppendingPathComponent("fixd.sqlite")
         database = YapDatabase(path: path, serializer: Database.serialize, deserializer: Database.deserialize)
         
-        database.registerExtension(CurrentUserView().build(), withName: "currentUser")
-        
+//        database.registerExtension(CurrentUserView().build(), withName: CurrentUserView.name)
+        CurrentUserView().addToDatabase(database)
+        VehiclesView().addToDatabase(database)
         
         uiConnection = database.newConnection()
         backgroundConnection = database.newConnection()
@@ -159,16 +160,16 @@ class Database {
         return t
     }
     
-    func readObjectsFromView<T: Model>(view: String, group: String) -> [T] {
-        var ts = [T]()
+    func readObjectsFromView<T: Model>(view: String, inGroup: String) -> [T] {
+        var tt = [T]()
         uiConnection.readWithBlock() { transaction in
-            (transaction.ext(view) as? YapDatabaseViewTransaction)?.enumerateRowsInGroup(group) { c, k, o, m, i, p in
+            (transaction.ext(view) as? YapDatabaseViewTransaction)?.enumerateRowsInGroup(inGroup) { c, k, o, m, i, p in
                 if let o = o as? T {
-                    ts[Int(i)] = o
+                    tt[Int(i)] = o
                 }
             }
         }
-        return ts
+        return tt
     }
     
     /**

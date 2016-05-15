@@ -18,6 +18,9 @@ protocol Viewable {
     associatedtype ObjectType
     associatedtype MetadataType
     
+    static var name: String { get }
+    static var collectionName: String { get }
+    
     var groupType: ViewType { get }
     var sortType: ViewType { get }
     
@@ -41,10 +44,12 @@ extension Viewable {
         switch(groupType){
         case .Key:
             return YapDatabaseViewGrouping.withKeyBlock() { t, c, k in
+                guard c == self.dynamicType.collectionName else { return nil }
                 return self.group(t, collection: c, key: k, object: nil, metadata: nil)
             }
         case .Object:
             return YapDatabaseViewGrouping.withObjectBlock() { t, c, k, o in
+                guard c == self.dynamicType.collectionName else { return nil }
                 if let o = o as? ObjectType {
                     return self.group(t, collection: c, key: k, object: o, metadata: nil)
                 }else{
@@ -53,10 +58,12 @@ extension Viewable {
             }
         case .Metadata:
             return YapDatabaseViewGrouping.withMetadataBlock() { t, c, k, m in
+                guard c == self.dynamicType.collectionName else { return nil }
                 return self.group(t, collection: c, key: k, object: nil, metadata: m as? MetadataType)
             }
         case .Row:
             return YapDatabaseViewGrouping.withRowBlock() { t, c, k, o, m in
+                guard c == self.dynamicType.collectionName else { return nil }
                 if let o = o as? ObjectType {
                     return self.group(t, collection: c, key: k, object: o, metadata: m as? MetadataType)
                 }else{
@@ -95,8 +102,12 @@ extension Viewable {
         }
     }
     
-    func build() -> YapDatabaseView {
+    private func build() -> YapDatabaseView {
         return YapDatabaseView(grouping: grouping, sorting: sorting, versionTag: versionTag)
+    }
+    
+    func addToDatabase(database: YapDatabase) {
+        database.registerExtension(build(), withName: self.dynamicType.name)
     }
 }
 
